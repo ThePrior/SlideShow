@@ -1,0 +1,109 @@
+﻿<!-- NOTE: jQuery loaded via a Site Collection custom action --> 
+<!-- 
+<script src="../sites/ReusableResources/SiteAssets/Scripts/jquery.min.js" type="text/javascript"></script>
+-->
+
+<!-- /SiteAssets/scripts/SlideshowObjectInitializer.html -->
+<script type="text/javascript">
+
+window.AWP = window.AWP || {};
+
+window.AWP.SlideshowObjectInitializer = function() {
+
+	var clickThroughUrlsLoadComplete = false;
+	var clickThroughUrlsLoadFailure = false;
+	var clickThroughUrls = {};
+
+	SlideshowObject = (function(SlideshowObjectOrig) {
+		return function() {
+       
+			//http://uatspace.awp.nhs.uk/_api/web/lists/GetByTitle('rotating-banner')/items?$select=Slide_x0020_URL_x002d_Text,FileRef/FileRef
+			$.ajax({ 
+				url: _spPageContextInfo.webAbsoluteUrl + "/_api/web/lists/GetByTitle('rotating-banner')/items?$select=Slide_x0020_URL_x002d_Text,FileRef/FileRef", 
+				type: "GET", 
+				headers: {"accept": "application/json;odata=verbose"}, 
+				success: function (data) { 
+					if (data.d.results) { 
+						for (var i = 0; i < data.d.results.length; i++) {  
+							var item = data.d.results[i];
+							var href = _spPageContextInfo.webAbsoluteUrl + encodeURI(item.FileRef);
+							//console.log(href);
+							//console.log(item.Slide_x0020_URL_x002d_Text);
+							clickThroughUrls[href] = item.Slide_x0020_URL_x002d_Text;
+						}
+					} 
+					
+					clickThroughUrlsLoadComplete = true;
+				}, 
+				error: function (xhr) { 
+					//alert(xhr.status + ': ' + xhr.statusText); 
+					clickThroughUrlsLoadFailure = true;
+					clickThroughUrlsLoadComplete = true;
+					} 
+				}); 
+	   
+		   //Call original SlideshowObject constructor 
+		   return SlideshowObjectOrig.apply(this, arguments);
+		};
+	})(SlideshowObject);
+  
+	// anonymous self-invoking function see: https://www.w3schools.com/js/js_function_definition.asp
+	ShowPic = (function(ShowPicOrig) {
+	
+		return function() {
+		  
+			   var ssObj = arguments[0];  //SlideShow object
+			   var curPicIdx=ssObj.index; //current picture index
+
+			   //apply some changes to display original picture in SlideShow control
+			   //console.log(ssObj.image.src);
+			   //console.log(ssObj.linkArray[curPicIdx]);
+			   ssObj.image.src = ssObj.linkArray[curPicIdx]; //display original image instead of web image
+			   
+			   ShowPicOrig.apply(this, arguments); //call original ShowPic
+			   	   		   		   
+			   //change picture & container size to auto instead of fixed (by default web image size is used)
+			   ssObj.image.setAttribute('height','100%'); 
+			   ssObj.image.setAttribute('width','100%'); 
+			   
+			   var cell = ssObj.cell; 
+			   cell.style.width = 'auto';
+			   cell.style.height = 'auto';
+			   cell.style.display = '';
+			   var pcell = ssObj.cell.parentNode; 
+			   pcell.style.width = 'auto';
+			   pcell.style.height = 'auto';
+			   
+			   setImageClickThroughUrl(ssObj);
+		};
+		
+	})(ShowPic);
+	
+	function setImageClickThroughUrl(ssObj){
+		//console.log("Href before: " + ssObj.link.href);
+		if (!clickThroughUrlsLoadComplete){
+				//console.log("Image Urls not yet loaded... waiting 500 ms");
+				setTimeout(function() { setImageClickThroughUrl(ssObj); }, 500);
+				return;
+			} 
+			
+		//console.log("Image Urls loading complete");
+		
+		if (clickThroughUrlsLoadFailure === true){
+			//error loading urls in AJAX call.
+			//TODO: Is there any way to report errors? Maybe an onClick on the image.
+		} else {
+			var clickThroughUrl = clickThroughUrls[ssObj.link.href];
+			//console.log("original href = " + ssObj.link.href + ", looked up href = " + clickThroughUrl);
+			if (typeof clickThroughUrl !== 'undefined') {
+				ssObj.link.href = clickThroughUrl; //set image click through url
+			}
+			//TODO: Is there any way to report errors? Maybe an onClick on the image?
+		}
+	}
+} 
+
+ExecuteOrDelayUntilScriptLoaded(window.AWP.SlideshowObjectInitializer, 'imglib.js');
+</script>
+
+
